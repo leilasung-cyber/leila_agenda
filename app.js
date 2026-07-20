@@ -3,7 +3,7 @@
 
   const STORAGE_KEY = 'today-organizer-v1';
   const WEATHER_CACHE_KEY = 'leila-weather-v1';
-  const HOLIDAY_CACHE_KEY = 'leila-holidays-kr-v1';
+  const HOLIDAY_CACHE_KEY = 'leila-holidays-kr-v3';
   const TZ = 'Asia/Seoul';
   const categoryLabels = { work: '업무', personal: '개인', family: '아이·가족' };
   const typeLabels = { event: '일정', task: '할 일', someday: '언젠가', shopping: '쇼핑' };
@@ -119,7 +119,7 @@
       if (!match[1] && result < new Date(now.getFullYear(), now.getMonth(), now.getDate())) result.setFullYear(year + 1);
       return result;
     }
-    match = text.match(/\b(\d{1,2})[./-](\d{1,2})(?:일)?\b/);
+    match = text.match(/\b(\d{1,2})[./-](\d{1,2})(?:일)?\b(?!\s*시간)/);
     if (match) {
       const result = new Date(now.getFullYear(), Number(match[1]) - 1, Number(match[2]));
       if (result < new Date(now.getFullYear(), now.getMonth(), now.getDate())) result.setFullYear(now.getFullYear() + 1);
@@ -309,7 +309,7 @@
       .replace(/^(업무|개인|아이(?:·가족)?|가족)\s*[:：]\s*/, '')
       .replace(/(?:(?:\d{4})년\s*)?\d{1,2}월\s*\d{1,2}일\s*(?:~|～|–|—|-|부터)\s*(?:(?:(?:\d{4})년\s*)?\d{1,2}월\s*)?\d{1,2}일(?:까지)?/g, '')
       .replace(/(?:(?:\d{4})년\s*)?\d{1,2}월\s*\d{1,2}일/g, '')
-      .replace(/\b\d{1,2}[./-]\d{1,2}(?:일)?\b/g, '')
+      .replace(/\b\d{1,2}[./-]\d{1,2}(?:일)?\b(?!\s*시간)/g, '')
       .replace(/(오늘|내일|모레|다다음\s*주|다음\s*주|이번\s*주)/g, '')
       .replace(/매\s*(?:년|해)/g, '')
       .replace(/매\s*(?:달|월)\s*\d{1,2}일/g, '')
@@ -354,7 +354,7 @@
       .replace(/^(업무|개인|아이(?:·가족)?|가족|언젠가|나중에|쇼핑|장보기|할\s*일)\s*[:：]\s*/, '')
       .replace(/(?:(?:\d{4})년\s*)?\d{1,2}월\s*\d{1,2}일\s*(?:~|～|–|—|-|부터)\s*(?:(?:(?:\d{4})년\s*)?\d{1,2}월\s*)?\d{1,2}일(?:까지)?/g, '')
       .replace(/(?:(?:\d{4})년\s*)?\d{1,2}월\s*\d{1,2}일/g, '')
-      .replace(/\b\d{1,2}[./-]\d{1,2}(?:일)?\b/g, '')
+      .replace(/\b\d{1,2}[./-]\d{1,2}(?:일)?\b(?!\s*시간)/g, '')
       .replace(/(오늘|내일|모레|다다음\s*주|다음\s*주|이번\s*주)/g, '')
       .replace(/매\s*(?:년|해)/g, '')
       .replace(/매\s*(?:달|월)\s*\d{1,2}일/g, '')
@@ -469,10 +469,10 @@
 
   function addFixedKoreanHolidays(year) {
     const fixed = [
-      ['01-01', 'New Year'], ['03-01', 'Independence Movement Day'],
-      ['05-05', "Children's Day"], ['06-06', 'Memorial Day'],
-      ['08-15', 'Liberation Day'], ['10-03', 'National Foundation Day'],
-      ['10-09', 'Hangul Day'], ['12-25', 'Christmas Day']
+      ['01-01', '신정'], ['03-01', '삼일절'],
+      ['05-05', '어린이날'], ['06-06', '현충일'],
+      ['08-15', '광복절'], ['10-03', '개천절'],
+      ['10-09', '한글날'], ['12-25', '성탄절']
     ];
     fixed.forEach(([suffix, name]) => holidayDates.set(year + '-' + suffix, name));
   }
@@ -487,11 +487,11 @@
       if (!Number.isInteger(year) || holidayLoadingYears.has(year)) return;
       addFixedKoreanHolidays(year);
       holidayLoadingYears.add(year);
-      fetch('https://date.nager.at/api/v4/Holidays/KR/' + year)
+      fetch('https://date.nager.at/api/v3/PublicHolidays/' + year + '/KR')
         .then(response => { if (!response.ok) throw new Error('holiday response'); return response.json(); })
         .then(holidays => {
-          holidays.filter(holiday => holiday.nationalHoliday !== false && (!Array.isArray(holiday.holidayTypes) || holiday.holidayTypes.includes('Public')))
-            .forEach(holiday => holidayDates.set(holiday.date, holiday.name || 'Holiday'));
+          holidays.filter(holiday => !Array.isArray(holiday.types) || holiday.types.includes('Public'))
+            .forEach(holiday => holidayDates.set(holiday.date, holiday.localName || holiday.name || '공휴일'));
           saveHolidayCache();
         })
         .catch(() => {})
@@ -513,12 +513,13 @@
   function specialDayHtml(day, compact = false) {
     const key = dateKey(day);
     const labels = [];
-    if (key === paydayKey(day.getFullYear(), day.getMonth())) labels.push('💸 월급날');
-    if (key === dDayKey(day.getFullYear(), day.getMonth())) labels.push('✨ D-day');
+    if (holidayDates.has(key)) labels.push('<span class="holiday-name">' + escapeHtml(holidayDates.get(key)) + '</span>');
+    if (key === paydayKey(day.getFullYear(), day.getMonth())) labels.push('<span>💸 월급날</span>');
+    if (key === dDayKey(day.getFullYear(), day.getMonth())) labels.push('<span>✨ D-day</span>');
     itemsOn(key).forEach(item => {
-      if (isAnniversary(item)) labels.push((/생일|생신/.test(item.title) ? '🎂 ' : '💝 ') + item.title.trim());
+      if (item.type === 'event' && isAnniversary(item)) labels.push('<span>' + escapeHtml((/생일|생신/.test(item.title) ? '🎂 ' : '💝 ') + item.title.trim()) + '</span>');
     });
-    return labels.length ? '<div class="special-day-labels ' + (compact ? 'compact' : '') + '">' + labels.map(label => '<span>' + escapeHtml(label) + '</span>').join('') + '</div>' : '';
+    return '<div class="special-day-labels ' + (compact ? 'compact' : '') + '">' + labels.join('') + '</div>';
   }
 
   function itemsOn(key) {
@@ -562,7 +563,7 @@
     $('#month-grid').innerHTML = Array.from({ length: 42 }, (_, index) => {
       const day = addDays(first, index);
       const key = dateKey(day);
-      const items = itemsOn(key).filter(item => !isAnniversary(item));
+      const items = itemsOn(key).filter(item => !(item.type === 'event' && isAnniversary(item)));
       const itemHtml = items.slice(0,3).map(item => '<button type="button" class="month-item ' + item.category + '" data-action="edit" data-id="' + escapeHtml(item.id) + '" data-occurrence="' + key + '">' + (item.time || '') + ' ' + escapeHtml(item.title) + '</button>').join('');
       const holidayClass = holidayDates.has(key) ? 'holiday ' : '';
       return '<div class="month-day ' + holidayClass + (day.getMonth() !== monthCursor.getMonth() ? 'other-month ' : '') + (key === todayKey() ? 'today' : '') + '"><span class="day-number">' + day.getDate() + '</span>' + specialDayHtml(day, true) + itemHtml + '</div>';
@@ -610,11 +611,12 @@
     const events = items.filter(item => item.type === 'event' && !isAnniversary(item)).sort((a,b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
     const todos = items.filter(item => item.type === 'task' && !item.done);
     const specials = [];
-    if (key === paydayKey(today.getFullYear(), today.getMonth())) specials.push('💸 월급날');
-    if (key === dDayKey(today.getFullYear(), today.getMonth())) specials.push('✨ D-day');
-    items.forEach(item => { if (isAnniversary(item)) specials.push((/생일|생신/.test(item.title) ? '🎂 ' : '💝 ') + item.title.trim()); });
+    if (holidayDates.has(key)) specials.push('<span class="widget-holiday">' + escapeHtml(holidayDates.get(key)) + '</span>');
+    if (key === paydayKey(today.getFullYear(), today.getMonth())) specials.push('<span>💸 월급날</span>');
+    if (key === dDayKey(today.getFullYear(), today.getMonth())) specials.push('<span>✨ D-day</span>');
+    items.forEach(item => { if (item.type === 'event' && isAnniversary(item)) specials.push('<span>' + escapeHtml((/생일|생신/.test(item.title) ? '🎂 ' : '💝 ') + item.title.trim()) + '</span>'); });
     const special = $('#widget-special');
-    special.innerHTML = specials.map(label => '<span>' + escapeHtml(label) + '</span>').join('');
+    special.innerHTML = specials.join('');
     special.classList.toggle('hidden', specials.length === 0);
     $('#widget-date').textContent = new Intl.DateTimeFormat('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' }).format(today);
     $('#widget-events').innerHTML = events.length
@@ -720,7 +722,7 @@
     $('#book-list').innerHTML = books.length
       ? books.map(book => bookCardHtml(book)).join('')
       : '<div class="empty-state">읽은 책 제목을 입력해 첫 기록을 남겨보세요.</div>';
-    $('#book-recent-count').textContent = '이번 달 ' + monthBooks.length + '권 · 총 ' + books.length + '권';
+    $('#book-recent-count').textContent = '최근 7일 ' + recentBooks.length + '권 · 총 ' + books.length + '권';
     $('#book-recent-list').innerHTML = recentBooks.length
       ? recentBooks.map(book => bookCardHtml(book, { readonly: true })).join('')
       : '<div class="empty-state">최근 7일 동안 읽은 책이 없습니다.</div>';
