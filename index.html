@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#e35f96">
+  <meta name="description" content="생각나는 대로 적으면 일정과 할 일을 정리해 주는 개인 일정 관리 앱">
+  <title>Leila Portal</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css?v=23">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">L</span><div><strong>Leila Portal</strong><span id="today-label" class="subtle"></span><span id="weather-inline" class="weather-inline" aria-live="polite"> &middot; &#45216;&#50472; &#54869;&#51064; &#51473;</span></div></div>
+    <button id="sync-status" class="quiet-button" type="button" data-view-target="settings">이 기기에 저장 중</button>
+  </header>
+  <nav class="main-nav" aria-label="주요 메뉴">
+    <button class="nav-button active" type="button" data-view="home">홈</button><button class="nav-button" type="button" data-view="calendar">캘린더</button><button class="nav-button" type="button" data-view="tasks">할 일</button><button class="nav-button" type="button" data-view="someday">언젠가</button><button class="nav-button" type="button" data-view="family">아이·가족</button><button class="nav-button" type="button" data-view="books">독서</button>
+  </nav>
+  <main class="app-main">
+    <section class="view active" data-panel="home">
+      <section class="composer card">
+        <div class="section-heading compact"><div><p class="eyebrow">빠른 입력</p><h2>생각나는 대로 적어주세요</h2></div><span class="subtle">한 줄에 하나씩</span></div>
+        <label class="sr-only" for="quick-input">일정과 할 일 입력</label>
+        <textarea id="quick-input" rows="5" placeholder="예: 매일 오전 7시 물 마시기&#10;매 주 수요일 오후 5:40~6:40 필라테스 수업&#10;매달 25일 카드대금 확인&#10;8월 8일~9일 가족여행"></textarea>
+        <div class="quick-row"><div class="quick-examples"><button class="chip" type="button" data-prefix="업무: ">업무</button><button class="chip" type="button" data-prefix="개인: ">개인</button><button class="chip" type="button" data-prefix="아이·가족: ">아이·가족</button><button class="chip" type="button" data-prefix="언젠가: ">언젠가</button><button class="chip" type="button" data-prefix="쇼핑: ">쇼핑</button></div><button id="parse-button" class="primary-button" type="button">&#48148;&#47196; &#46321;&#47197;</button></div>
+      </section>
+      <div class="home-overview">
+        <section class="section-block">
+          <div class="section-heading"><div><p class="eyebrow">이번 주 계획</p><h1 id="week-title">이번 주</h1></div><div class="inline-actions"><button id="week-prev" class="icon-button" type="button" aria-label="이전 주">‹</button><button id="week-today" class="quiet-button" type="button">이번 주</button><button id="week-next" class="icon-button" type="button" aria-label="다음 주">›</button></div></div>
+          <div id="week-strip" class="week-strip" aria-label="이번 주 일정"></div>
+        </section>
+        <aside id="weather-card" class="weather-card card" aria-live="polite">
+          <div class="weather-heading"><div><p class="eyebrow">오늘의 날씨</p><span id="weather-location" class="subtle">위치 확인 중</span></div><button id="weather-refresh" class="icon-button" type="button" aria-label="현재 위치 날씨 새로고침">↻</button></div>
+          <div class="weather-now"><span id="weather-icon" class="weather-icon" aria-hidden="true">🌤️</span><div><strong id="weather-temp" class="weather-temp">--°</strong><span id="weather-condition">날씨를 불러오는 중</span></div></div>
+          <div id="weather-range" class="weather-range subtle">최고 --° · 최저 --° · 체감 --°</div>
+          <p id="weather-advice" class="weather-advice">오늘 외출 준비를 확인하고 있어요.</p><a class="weather-source" href="https://open-meteo.com/" target="_blank" rel="noopener">Weather data by Open-Meteo</a>
+        </aside>
+      </div>
+
+      <section id="preview-section" class="section-block hidden" aria-live="polite">
+        <div class="section-heading compact"><div><p class="eyebrow">등록 전 확인</p><h2 id="preview-title">해석한 내용</h2></div><button id="cancel-preview" class="quiet-button" type="button">취소</button></div>
+        <div id="preview-list" class="preview-list"></div>
+        <div class="confirm-bar"><span id="preview-count" class="subtle"></span><button id="confirm-items" class="primary-button" type="button">확인한 항목 등록</button></div>
+      </section>
+      <section class="home-tools-grid">
+        <section class="card home-tool-card">
+          <div class="section-heading compact"><div><p class="eyebrow">쇼핑</p><h2>사야 할 것</h2></div><button class="primary-button" type="button" data-compose="쇼핑: ">+ 추가</button></div>
+          <div class="filter-row" role="group" aria-label="쇼핑 필터"><button class="chip active" type="button" data-shop-filter="all">전체</button><button class="chip" type="button" data-shop-filter="personal">개인</button><button class="chip" type="button" data-shop-filter="family">아이·가족</button><button class="chip" type="button" data-shop-filter="work">업무</button></div>
+          <div id="shopping-list" class="item-list"></div>
+        </section>
+        <section class="card home-tool-card book-tracker">
+          <div class="section-heading compact"><div><p class="eyebrow">읽은 책</p><h2>최근 독서 기록</h2></div><div class="inline-actions"><strong id="book-recent-count" class="book-count">최근 7일 · 0권</strong><button class="quiet-button" type="button" data-view-target="books">전체 보기</button></div></div>
+          <div id="book-recent-list" class="book-list"></div>
+        </section>
+      </section>
+      <section class="card someday-summary-card">
+          <div class="section-heading compact">
+            <div><p class="eyebrow">언젠가</p><h2>기한 없이 기억할 일</h2></div>
+            <div class="inline-actions">
+              <strong id="someday-summary-count" class="book-count">0개</strong>
+              <button class="quiet-button" type="button" data-view-target="someday">전체 보기</button>
+            </div>
+          </div>
+          <div id="someday-summary-list" class="someday-summary-list"></div>
+        </section>
+
+        <section class="home-lower">
+        <div class="section-block"><div class="section-heading compact"><h2>오늘</h2><button class="quiet-button" type="button" data-view-target="tasks">전체 보기</button></div><div id="today-list" class="item-list"></div></div>
+        <aside class="card daily-card"><p class="eyebrow">매일 오전 9시</p><h2>오늘의 요약</h2><p id="daily-summary">오늘 일정과 중요한 할 일을 모아 보여드릴게요.</p><button id="notification-button" class="secondary-button" type="button">브라우저 알림 켜기</button></aside>
+      </section>
+    </section>
+    <section class="view" data-panel="calendar">
+      <div class="section-heading"><div><p class="eyebrow">캘린더</p><h1 id="month-title"></h1></div><div class="inline-actions"><button id="month-prev" class="icon-button" type="button" aria-label="이전 달">‹</button><button id="month-today" class="quiet-button" type="button">오늘</button><button id="month-next" class="icon-button" type="button" aria-label="다음 달">›</button></div></div>
+      <div class="calendar-shell"><div class="weekday-row" aria-hidden="true"><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span><span>일</span></div><div id="month-grid" class="month-grid"></div></div>
+      <div class="legend"><span><i class="dot work"></i>업무</span><span><i class="dot personal"></i>개인</span><span><i class="dot family"></i>아이·가족</span></div>
+    </section>
+    <section class="view" data-panel="tasks"><div class="section-heading"><div><p class="eyebrow">할 일</p><h1>기한이 있는 할 일</h1></div><button class="primary-button" type="button" data-compose="할 일: ">+ 추가</button></div><div class="filter-row" role="group" aria-label="할 일 필터"><button class="chip active" type="button" data-task-filter="open">해야 할 일</button><button class="chip" type="button" data-task-filter="overdue">지연</button><button class="chip" type="button" data-task-filter="done">완료</button></div><div id="task-list" class="item-list spacious"></div></section>
+    <section class="view" data-panel="someday"><div class="section-heading"><div><p class="eyebrow">언젠가</p><h1>기한 없이 기억할 일</h1></div><button class="primary-button" type="button" data-compose="언젠가: ">+ 추가</button></div><p class="helper">매주 월요일에 최대 세 개를 다시 보여드려요. 준비되면 날짜를 정해 일반 할 일로 옮길 수 있습니다.</p><div id="someday-list" class="item-list spacious"></div></section>
+    <section class="view" data-panel="family"><div class="section-heading"><div><p class="eyebrow">아이·가족</p><h1>가족 일정과 준비물</h1></div><button class="primary-button" type="button" data-compose="아이·가족: ">+ 추가</button></div><div class="family-layout"><section><h2>다가오는 가족 일정</h2><div id="family-event-list" class="item-list"></div></section><section class="card"><h2>가족 준비 목록</h2><div id="family-task-list" class="item-list compact-list"></div></section></div></section>
+    <section class="view" data-panel="books">
+      <div class="section-heading"><div><p class="eyebrow">독서</p><h1>읽은 책 전체 기록</h1></div><strong id="book-count" class="book-count">총 0권</strong></div>
+      <section class="card book-library-card">
+        <div><p class="eyebrow">책 추가</p><h2>제목으로 책 찾기</h2></div>
+        <form id="book-search-form" class="book-search-form">
+          <label class="sr-only" for="book-title-input">읽은 책 제목</label>
+          <input id="book-title-input" type="text" placeholder="읽은 책 제목을 입력하세요" autocomplete="off">
+          <button id="book-search-button" class="secondary-button" type="submit">책 찾기</button>
+        </form>
+        <div id="book-search-results" class="book-search-results hidden" aria-live="polite"></div>
+        <div id="book-list" class="book-list"></div>
+        <div class="book-sources"><a class="book-source" href="https://books.google.com/" target="_blank" rel="noopener">Google Books</a><span>·</span><a class="book-source" href="https://openlibrary.org/" target="_blank" rel="noopener">Open Library</a></div>
+      </section>
+    </section>
+    <section class="view" data-panel="settings"><div class="section-heading"><div><p class="eyebrow">설정</p><h1>연결과 데이터</h1></div></div><div class="settings-grid"><section class="card settings-card"><h2>Google Calendar</h2><p class="helper">Google Cloud에서 만든 웹 OAuth 클라이언트 ID를 입력하면 일정 등록 버튼으로 바로 연결할 수 있습니다.</p><label for="google-client-id">OAuth 클라이언트 ID</label><input id="google-client-id" type="text" placeholder="000000000000-xxxx.apps.googleusercontent.com" autocomplete="off"><button id="google-connect" class="secondary-button" type="button">Google 계정 연결</button><p id="google-state" class="subtle">아직 연결되지 않았습니다.</p></section><section class="card settings-card"><h2>기기 간 동기화</h2><p class="helper">현재 버전은 이 브라우저에 저장됩니다. 온라인 배포 단계에서 로그인 기반 동기화를 연결합니다.</p><button id="export-data" class="secondary-button" type="button">데이터 백업</button><label class="file-button" for="import-data">백업 가져오기</label><input id="import-data" class="sr-only" type="file" accept="application/json"></section></div></section>
+  </main>
+  <dialog id="edit-dialog" class="edit-dialog" aria-labelledby="edit-dialog-title">
+    <form id="edit-form" class="edit-form">
+      <div class="edit-heading"><div><p class="eyebrow">일정 수정</p><h2 id="edit-dialog-title">선택한 일정</h2></div><button id="edit-close" class="icon-button" type="button" aria-label="수정창 닫기">×</button></div>
+      <p id="edit-series-note" class="edit-series-note hidden">이 일정은 반복 일정입니다. 저장하면 이후 반복 일정 전체에 적용됩니다.</p>
+      <div class="edit-grid">
+        <label class="wide">제목<input id="edit-title" type="text" required></label>
+        <label class="wide">위치<input id="edit-location" type="text" placeholder="장소 없음"></label>
+        <label>구분<select id="edit-category"><option value="work">업무</option><option value="personal">개인</option><option value="family">아이·가족</option></select></label>
+        <label>주간 칸<select id="edit-meal-slot"><option value="">일반 일정</option><option value="lunch">점심 약속</option><option value="dinner">저녁 약속</option></select></label>
+        <label>날짜<input id="edit-date" type="date" required></label>
+        <label>종료일<input id="edit-end-date" type="date"></label>
+        <label>시작<input id="edit-time" type="time"></label>
+        <label>종료<input id="edit-end-time" type="time"></label>
+        <label>반복<select id="edit-recurrence"><option value="">반복 없음</option><option value="daily">매일</option><option value="weekly">매주</option><option value="monthly">매달</option><option value="yearly">매년</option></select></label>
+        <label>알림<input id="edit-reminder" type="number" min="0" step="5"><span class="field-hint">분 전</span></label>
+      </div>
+      <div class="edit-actions"><button id="edit-cancel" class="quiet-button" type="button">취소</button><button class="primary-button" type="submit">변경사항 저장</button></div>
+    </form>
+  </dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="app.js?v=23" defer></script><script src="glow.js?v=23" defer></script>
+</body>
+</html>
