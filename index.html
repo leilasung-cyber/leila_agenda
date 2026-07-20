@@ -8,7 +8,7 @@
   <title>Leila Portal</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=23">
+  <link rel="stylesheet" href="styles.css?v=24">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
@@ -21,6 +21,14 @@
   </nav>
   <main class="app-main">
     <section class="view active" data-panel="home">
+      <section class="mobile-widget" aria-label="오늘 요약 위젯">
+        <div id="widget-special" class="widget-special hidden"></div>
+        <div class="widget-head"><strong id="widget-date"></strong><span id="widget-weather" class="widget-weather"></span></div>
+        <div class="widget-body">
+          <div class="widget-col"><p class="widget-label">오늘 일정</p><div id="widget-events" class="widget-list"></div></div>
+          <div class="widget-col"><p class="widget-label">To-do</p><div id="widget-todos" class="widget-list"></div></div>
+        </div>
+      </section>
       <section class="composer card">
         <div class="section-heading compact"><div><p class="eyebrow">빠른 입력</p><h2>생각나는 대로 적어주세요</h2></div><span class="subtle">한 줄에 하나씩</span></div>
         <label class="sr-only" for="quick-input">일정과 할 일 입력</label>
@@ -116,6 +124,6 @@
     </form>
   </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app.js?v=23" defer></script><script src="glow.js?v=23" defer></script>
+  <script src="app.js?v=24" defer></script><script src="glow.js?v=24" defer></script>
 </body>
 </html>

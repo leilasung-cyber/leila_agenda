@@ -569,6 +569,30 @@
     $('#daily-summary').textContent = events || tasks ? `오늘 일정 ${events}개, 오늘 확인할 할 일 ${tasks}개가 있습니다.` : '오늘은 비어 있습니다. 생각나는 일을 편하게 적어보세요.';
   }
 
+  function renderMobileWidget() {
+    const widget = $('.mobile-widget');
+    if (!widget) return;
+    const key = todayKey();
+    const today = parseKey(key);
+    const items = itemsOn(key);
+    const events = items.filter(item => item.type === 'event').sort((a,b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
+    const todos = items.filter(item => item.type === 'task' && !item.done);
+    const specials = [];
+    if (key === paydayKey(today.getFullYear(), today.getMonth())) specials.push('💸 월급날');
+    if (key === dDayKey(today.getFullYear(), today.getMonth())) specials.push('✨ D-day');
+    items.forEach(item => { if (/생일|생신|기념일/.test(item.title)) specials.push('🎂 ' + item.title.trim()); });
+    const special = $('#widget-special');
+    special.innerHTML = specials.map(label => '<span>' + escapeHtml(label) + '</span>').join('');
+    special.classList.toggle('hidden', specials.length === 0);
+    $('#widget-date').textContent = new Intl.DateTimeFormat('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' }).format(today);
+    $('#widget-events').innerHTML = events.length
+      ? events.map(item => '<div class="widget-item"><span class="widget-time">' + (item.time || '종일') + '</span><span>' + escapeHtml(item.title.trim()) + '</span></div>').join('')
+      : '<div class="widget-empty">오늘 일정 없음</div>';
+    $('#widget-todos').innerHTML = todos.length
+      ? todos.map(item => '<label class="widget-todo"><input type="checkbox" data-action="toggle" data-id="' + escapeHtml(item.id) + '"><span>' + escapeHtml(item.title.trim()) + '</span></label>').join('')
+      : '<div class="widget-empty">할 일 없음</div>';
+  }
+
   function renderTasks() {
     let items = state.items.filter(item => item.type === 'task');
     if (taskFilter === 'open') items = items.filter(item => !item.done);
@@ -747,7 +771,7 @@
     $('#sync-status').textContent = googleToken ? 'Google Calendar 연결됨' : '이 기기에 저장 중';
   }
 
-  function renderAll() { renderWeek(); renderMonth(); renderToday(); renderTasks(); renderSomeday(); renderFamily(); renderShopping(); renderBooks(); renderSettings(); }
+  function renderAll() { renderWeek(); renderMonth(); renderToday(); renderMobileWidget(); renderTasks(); renderSomeday(); renderFamily(); renderShopping(); renderBooks(); renderSettings(); }
 
   function openEditDialog(item) {
     editingItemId = item.id;
@@ -924,6 +948,8 @@
     const condition = weatherDescription(Number(weather.code));
     const inlineWeather = $('#weather-inline');
     if (inlineWeather) inlineWeather.textContent = ' · ' + condition.icon + ' ' + Math.round(weather.temperature) + '° · ' + condition.label;
+    const widgetWeather = $('#widget-weather');
+    if (widgetWeather) widgetWeather.textContent = condition.icon + ' ' + Math.round(weather.temperature) + '°';
     $('#weather-location').textContent = weather.location;
     $('#weather-icon').textContent = condition.icon;
     $('#weather-temp').textContent = `${Math.round(weather.temperature)}°`;
