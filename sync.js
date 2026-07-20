@@ -60,16 +60,36 @@
     pushTimer = setTimeout(doPush, 900);
   }
 
+  function mergeStates(local, remote) {
+    local = local || {}; remote = remote || {};
+    const byId = arr => { const m = new Map(); (arr || []).forEach(x => { if (x && x.id) m.set(x.id, x); }); return m; };
+    const union = (a, b) => { const m = byId(a); byId(b).forEach((v, k) => { if (!m.has(k)) m.set(k, v); }); return [...m.values()]; };
+    return {
+      items: union(local.items, remote.items),
+      books: union(local.books, remote.books),
+      settings: { ...(remote.settings || {}), ...(local.settings || {}) }
+    };
+  }
+
+  function applyRemote(data, ts) {
+    applyingRemote = true;
+    app.applyRemoteState?.(data);
+    if (ts) markUpdated(ts);
+    applyingRemote = false;
+  }
+
   async function pullAndReconcile() {
     const { data, error } = await supabase.from('snapshots').select('data, updated_at').eq('user_id', currentUser.id).maybeSingle();
     if (error) { console.warn('[LeilaSync] pull 오류', error); return; }
-    if (data && (!localUpdated() || data.updated_at >= localUpdated())) {
-      applyingRemote = true;
-      app.applyRemoteState?.(data.data);
-      markUpdated(data.updated_at);
-      applyingRemote = false;
-    } else {
-      await push(true); // 원격이 없거나 로컬이 더 최신 → 로컬을 올림
+    const synced = localUpdated();
+    if (!data) { await push(true); return; }              // 원격 없음 → 로컬 최초 업로드
+    if (!synced) {                                          // 이 기기 첫 동기화 → 손실 없이 병합 후 업로드
+      applyRemote(mergeStates(app.getState?.(), data.data));
+      await push(true);
+    } else if (data.updated_at >= synced) {                // 원격이 더 최신 → 원격 적용
+      applyRemote(data.data, data.updated_at);
+    } else {                                                // 로컬이 더 최신 → 업로드
+      await push(true);
     }
   }
 
@@ -79,10 +99,7 @@
       .on('postgres_changes', { event: '*', schema: 'public', table: 'snapshots', filter: 'user_id=eq.' + currentUser.id }, payload => {
         const row = payload.new;
         if (!row || !row.data || row.updated_at === lastPushedAt) return; // 내가 방금 올린 건 무시
-        applyingRemote = true;
-        app.applyRemoteState?.(row.data);
-        markUpdated(row.updated_at);
-        applyingRemote = false;
+        applyRemote(row.data, row.updated_at);
       })
       .subscribe();
   }
