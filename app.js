@@ -36,6 +36,7 @@
   const addDays = (date, amount) => { const next = new Date(date); next.setDate(next.getDate() + amount); return next; };
   const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
   const uid = () => crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const isAnniversary = item => /생일|생신|기념일/.test((item && item.title) || '');
 
   function startOfWeek(date) {
     const result = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -145,14 +146,16 @@
   function clockTime(period, hourValue, minuteValue = 0) {
     let hour = Number(hourValue);
     const minute = Number(minuteValue || 0);
-    if (period === '오후' && hour < 12) hour += 12;
-    if (period === '오전' && hour === 12) hour = 0;
+    const pm = ['오후', '저녁', '밤', '낮', '점심'].includes(period);
+    const am = ['오전', '아침', '새벽'].includes(period);
+    if (pm && hour < 12) hour += 12;
+    if (am && hour === 12) hour = 0;
     if (hour > 23 || minute > 59) return '';
     return pad(hour) + ':' + pad(minute);
   }
 
   function parseTimeDetails(text) {
-    const range = text.match(/(오전|오후)?\s*(\d{1,2})(?::(\d{2})|\s*시(?!간)(?:\s*(\d{1,2})\s*분)?)\s*(?:~|～|–|—|부터)\s*(오전|오후)?\s*(\d{1,2})(?::(\d{2})|\s*시(?!간)(?:\s*(\d{1,2})\s*분)?)/);
+    const range = text.match(/(오전|오후|새벽|아침|낮|점심|저녁|밤)?\s*(\d{1,2})(?::(\d{2})|\s*시(?!간)(?:\s*(\d{1,2})\s*분)?)\s*(?:~|～|–|—|부터)\s*(오전|오후|새벽|아침|낮|점심|저녁|밤)?\s*(\d{1,2})(?::(\d{2})|\s*시(?!간)(?:\s*(\d{1,2})\s*분)?)/);
     if (range) {
       const startPeriod = range[1] || '';
       const endPeriod = range[5] || startPeriod;
@@ -161,9 +164,9 @@
         end: clockTime(endPeriod, range[6], range[7] || range[8])
       };
     }
-    let match = text.match(/(오전|오후)?\s*(\d{1,2})\s*시(?!간)(?:\s*(\d{1,2})\s*분)?/);
+    let match = text.match(/(오전|오후|새벽|아침|낮|점심|저녁|밤)?\s*(\d{1,2})\s*시(?!간)(?:\s*(\d{1,2})\s*분)?/);
     if (match) return { start: clockTime(match[1], match[2], match[3]), end: '' };
-    match = text.match(/(오전|오후)?\s*(\d{1,2}):(\d{2})\b/);
+    match = text.match(/(오전|오후|새벽|아침|낮|점심|저녁|밤)?\s*(\d{1,2}):(\d{2})\b/);
     return match ? { start: clockTime(match[1], match[2], match[3]), end: '' } : { start: '', end: '' };
   }
 
@@ -224,7 +227,7 @@
     if (/^(?:쇼핑|장보기)\s*[:：]/.test(text) || /(사기|구매|장보기|쇼핑리스트)/.test(text)) return 'shopping';
     if (/^(?:언젠가|나중에)\s*[:：]/.test(text) || /(언젠가|나중에|기한\s*없)/.test(text)) return 'someday';
     if (/^(?:할\s*일)\s*[:：]/.test(text) || /(까지|마감|제출|신청|해야|준비하기|챙기기)/.test(text)) return 'task';
-    if (parsedTime || /(회의|미팅|약속|식사|병원|치과|학원|행사|여행|운동)/.test(text)) return 'event';
+    if (parsedTime || /(회의|미팅|약속|식사|병원|치과|학원|행사|여행|운동|생일|생신|기념일)/.test(text)) return 'event';
     return parsedDate ? 'task' : 'someday';
   }
 
@@ -277,6 +280,26 @@
     if (moved) localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     return moved;
   }
+  function migrateExistingAnniversaries() {
+    let moved = 0;
+    state.items.forEach(item => {
+      if (!isAnniversary(item) || !item.date) return;
+      if (item.type === 'event' && item.recurrence === 'yearly') return;
+      const anniversaryDate = parseKey(item.date);
+      item.type = 'event';
+      item.done = false;
+      item.mealSlot = '';
+      if (!item.recurrence) {
+        item.recurrence = 'yearly';
+        item.recurrenceMonth = anniversaryDate.getMonth() + 1;
+        item.recurrenceDate = anniversaryDate.getDate();
+        item.recurrenceDay = null;
+      }
+      moved += 1;
+    });
+    if (moved) localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    return moved;
+  }
   function escapeRegExp(value) {
     return String(value).replace(/[.*+?^$()|[\]\\{}]/g, '\\$&');
   }
@@ -292,9 +315,9 @@
       .replace(/매\s*(?:달|월)\s*\d{1,2}일/g, '')
       .replace(/매\s*(?:주|일|달|월)/g, '')
       .replace(/(?:월|화|수|목|금|토|일)요일/g, '')
-      .replace(/(?:오전|오후)?\s*\d{1,2}(?::\d{2}|\s*시(?:\s*\d{1,2}\s*분)?)\s*(?:~|～|–|—|부터)\s*(?:오전|오후)?\s*\d{1,2}(?::\d{2}|\s*시(?:\s*\d{1,2}\s*분)?)/g, '')
-      .replace(/(오전|오후)?\s*\d{1,2}\s*시(?!간)(?:\s*\d{1,2}\s*분)?/g, '')
-      .replace(/(?:오전|오후)?\s*\d{1,2}:\d{2}\b/g, '')
+      .replace(/(?:오전|오후|새벽|아침|낮|점심|저녁|밤)?\s*\d{1,2}(?::\d{2}|\s*시(?:\s*\d{1,2}\s*분)?)\s*(?:~|～|–|—|부터)\s*(?:오전|오후|새벽|아침|낮|점심|저녁|밤)?\s*\d{1,2}(?::\d{2}|\s*시(?:\s*\d{1,2}\s*분)?)/g, '')
+      .replace(/(?:오전|오후|새벽|아침|낮|점심|저녁|밤)?\s*\d{1,2}\s*시(?!간)(?:\s*\d{1,2}\s*분)?/g, '')
+      .replace(/(?:오전|오후|새벽|아침|낮|점심|저녁|밤)?\s*\d{1,2}:\d{2}\b/g, '')
       .replace(/^.+?(?:와|과|랑|하고)\s+/, '')
       .replace(/^(?:점심|저녁|런치|디너|오찬|석식)\s*(?:약속|식사|미팅)?\s*/, '')
       .replace(/^(?:약속|미팅|회의)\s+/, '')
@@ -337,9 +360,9 @@
       .replace(/매\s*(?:달|월)\s*\d{1,2}일/g, '')
       .replace(/매\s*(?:주|일|달|월)/g, '')
       .replace(/(?:월|화|수|목|금|토|일)요일/g, '')
-      .replace(/(?:오전|오후)?\s*\d{1,2}(?::\d{2}|\s*시(?:\s*\d{1,2}\s*분)?)\s*(?:~|～|–|—|부터)\s*(?:오전|오후)?\s*\d{1,2}(?::\d{2}|\s*시(?:\s*\d{1,2}\s*분)?)/g, '')
-      .replace(/(오전|오후)?\s*\d{1,2}\s*시(?!간)(?:\s*\d{1,2}\s*분)?/g, '')
-      .replace(/(?:오전|오후)?\s*\d{1,2}:\d{2}\b/g, '')
+      .replace(/(?:오전|오후|새벽|아침|낮|점심|저녁|밤)?\s*\d{1,2}(?::\d{2}|\s*시(?:\s*\d{1,2}\s*분)?)\s*(?:~|～|–|—|부터)\s*(?:오전|오후|새벽|아침|낮|점심|저녁|밤)?\s*\d{1,2}(?::\d{2}|\s*시(?:\s*\d{1,2}\s*분)?)/g, '')
+      .replace(/(?:오전|오후|새벽|아침|낮|점심|저녁|밤)?\s*\d{1,2}\s*시(?!간)(?:\s*\d{1,2}\s*분)?/g, '')
+      .replace(/(?:오전|오후|새벽|아침|낮|점심|저녁|밤)?\s*\d{1,2}:\d{2}\b/g, '')
       .replace(/\d+(?:\.\d+)?\s*시간/g, '')
       .replace(/\d+\s*분\s*전\s*알림|\d+\s*분\s*전에\s*알려줘/g, '')
       .replace(/(까지|마감)/g, '')
@@ -350,11 +373,17 @@
   }
 
   function parseLine(text) {
+    text = text.replace(/(\d{1,2}\s*시)\s*반(?=\s|$|[~～–—에까지부터,.])/g, '$1 30분');
     const category = detectCategory(text);
     const dateRange = parseDateRangeFromText(text);
     let parsedDate = dateRange.start || parseDateFromText(text);
     const recurrence = parseRecurrenceFromText(text, parsedDate);
     if (!parsedDate && recurrence.recurrence) parsedDate = firstRecurrenceDate(recurrence);
+    if (/생일|생신|기념일/.test(text) && parsedDate && !recurrence.recurrence) {
+      recurrence.recurrence = 'yearly';
+      recurrence.recurrenceMonth = parsedDate.getMonth() + 1;
+      recurrence.recurrenceDate = parsedDate.getDate();
+    }
     const timeDetails = parseTimeDetails(text);
     const mealSlot = detectMealSlot(text);
     const time = timeDetails.start || (mealSlot === 'lunch' ? '12:00' : mealSlot === 'dinner' ? '18:00' : '');
@@ -486,7 +515,10 @@
     const labels = [];
     if (key === paydayKey(day.getFullYear(), day.getMonth())) labels.push('💸 월급날');
     if (key === dDayKey(day.getFullYear(), day.getMonth())) labels.push('✨ D-day');
-    return labels.length ? '<div class="special-day-labels ' + (compact ? 'compact' : '') + '">' + labels.map(label => '<span>' + label + '</span>').join('') + '</div>' : '';
+    itemsOn(key).forEach(item => {
+      if (isAnniversary(item)) labels.push((/생일|생신/.test(item.title) ? '🎂 ' : '💝 ') + item.title.trim());
+    });
+    return labels.length ? '<div class="special-day-labels ' + (compact ? 'compact' : '') + '">' + labels.map(label => '<span>' + escapeHtml(label) + '</span>').join('') + '</div>' : '';
   }
 
   function itemsOn(key) {
@@ -511,7 +543,7 @@
       const items = itemsOn(key).sort((a,b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
       const eventButton = item => '<button type="button" class="week-event ' + item.category + '" data-action="edit" data-id="' + escapeHtml(item.id) + '" data-occurrence="' + key + '">' + (item.time ? item.time + ' ' : '') + escapeHtml(item.title) + '</button>';
       const todoItems = items.filter(item => item.type === 'task' && !item.done);
-      const generalItems = items.filter(item => item.type !== 'task' && !item.mealSlot);
+      const generalItems = items.filter(item => item.type !== 'task' && !item.mealSlot && !isAnniversary(item));
       const lunchItems = items.filter(item => item.mealSlot === 'lunch');
       const dinnerItems = items.filter(item => item.mealSlot === 'dinner');
       const generalHtml = generalItems.length ? generalItems.slice(0,5).map(eventButton).join('') : '<span class="empty-day">일정 없음</span>';
@@ -530,7 +562,7 @@
     $('#month-grid').innerHTML = Array.from({ length: 42 }, (_, index) => {
       const day = addDays(first, index);
       const key = dateKey(day);
-      const items = itemsOn(key);
+      const items = itemsOn(key).filter(item => !isAnniversary(item));
       const itemHtml = items.slice(0,3).map(item => '<button type="button" class="month-item ' + item.category + '" data-action="edit" data-id="' + escapeHtml(item.id) + '" data-occurrence="' + key + '">' + (item.time || '') + ' ' + escapeHtml(item.title) + '</button>').join('');
       const holidayClass = holidayDates.has(key) ? 'holiday ' : '';
       return '<div class="month-day ' + holidayClass + (day.getMonth() !== monthCursor.getMonth() ? 'other-month ' : '') + (key === todayKey() ? 'today' : '') + '"><span class="day-number">' + day.getDate() + '</span>' + specialDayHtml(day, true) + itemHtml + '</div>';
@@ -575,12 +607,12 @@
     const key = todayKey();
     const today = parseKey(key);
     const items = itemsOn(key);
-    const events = items.filter(item => item.type === 'event').sort((a,b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
+    const events = items.filter(item => item.type === 'event' && !isAnniversary(item)).sort((a,b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
     const todos = items.filter(item => item.type === 'task' && !item.done);
     const specials = [];
     if (key === paydayKey(today.getFullYear(), today.getMonth())) specials.push('💸 월급날');
     if (key === dDayKey(today.getFullYear(), today.getMonth())) specials.push('✨ D-day');
-    items.forEach(item => { if (/생일|생신|기념일/.test(item.title)) specials.push('🎂 ' + item.title.trim()); });
+    items.forEach(item => { if (isAnniversary(item)) specials.push((/생일|생신/.test(item.title) ? '🎂 ' : '💝 ') + item.title.trim()); });
     const special = $('#widget-special');
     special.innerHTML = specials.map(label => '<span>' + escapeHtml(label) + '</span>').join('');
     special.classList.toggle('hidden', specials.length === 0);
@@ -1051,6 +1083,7 @@
       migrateExistingMealSlots();
       migrateExistingDateRanges();
       migrateExistingRecurrences();
+      migrateExistingAnniversaries();
       saveState(); toast('백업 데이터를 가져왔습니다.');
     } catch { toast('올바른 백업 파일이 아닙니다.'); }
   }
@@ -1112,8 +1145,9 @@
     const movedMeals = migrateExistingMealSlots();
     const movedRanges = migrateExistingDateRanges();
     const movedRecurrences = migrateExistingRecurrences();
+    const movedAnnis = migrateExistingAnniversaries();
     bindEvents(); renderAll(); updateNotificationButton(); maybeSendDigest(); loadWeather();
-    if (movedMeals || movedRanges || movedRecurrences) toast('기존 일정 ' + (movedMeals + movedRanges + movedRecurrences) + '개를 새 형식으로 정리했어요.');
+    if (movedMeals || movedRanges || movedRecurrences || movedAnnis) toast('기존 일정 ' + (movedMeals + movedRanges + movedRecurrences + movedAnnis) + '개를 새 형식으로 정리했어요.');
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
   }
 
