@@ -73,6 +73,7 @@
   function saveState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     renderAll();
+    window.__leilaApp?.onLocalChange?.();
   }
 
   function toast(message) {
@@ -802,7 +803,7 @@
   function renderSettings() {
     $('#google-client-id').value = state.settings.googleClientId || '';
     $('#google-state').textContent = googleToken ? 'Google Calendar에 연결되었습니다.' : '아직 연결되지 않았습니다.';
-    $('#sync-status').textContent = googleToken ? 'Google Calendar 연결됨' : '이 기기에 저장 중';
+    if (!window.__leilaSyncActive) $('#sync-status').textContent = googleToken ? 'Google Calendar 연결됨' : '이 기기에 저장 중';
   }
 
   function renderAll() { renderWeek(); renderMonth(); renderToday(); renderMobileWidget(); renderTasks(); renderSomeday(); renderFamily(); renderShopping(); renderBooks(); renderSettings(); }
@@ -1152,6 +1153,16 @@
     if (movedMeals || movedRanges || movedRecurrences || movedAnnis) toast('기존 일정 ' + (movedMeals + movedRanges + movedRecurrences + movedAnnis) + '개를 새 형식으로 정리했어요.');
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
   }
+
+  window.__leilaApp = Object.assign(window.__leilaApp || {}, {
+    getState: () => state,
+    applyRemoteState: data => {
+      if (!data || !Array.isArray(data.items)) return;
+      state = { items: data.items, books: Array.isArray(data.books) ? data.books : [], settings: { ...defaultState.settings, ...(data.settings || {}) } };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      renderAll();
+    }
+  });
 
   document.addEventListener('DOMContentLoaded', init);
 })();

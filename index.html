@@ -8,7 +8,7 @@
   <title>Leila Portal</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=27">
+  <link rel="stylesheet" href="styles.css?v=28">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
@@ -102,7 +102,7 @@
         <div class="book-sources"><a class="book-source" href="https://books.google.com/" target="_blank" rel="noopener">Google Books</a><span>·</span><a class="book-source" href="https://openlibrary.org/" target="_blank" rel="noopener">Open Library</a></div>
       </section>
     </section>
-    <section class="view" data-panel="settings"><div class="section-heading"><div><p class="eyebrow">설정</p><h1>연결과 데이터</h1></div></div><div class="settings-grid"><section class="card settings-card"><h2>Google Calendar</h2><p class="helper">Google Cloud에서 만든 웹 OAuth 클라이언트 ID를 입력하면 일정 등록 버튼으로 바로 연결할 수 있습니다.</p><label for="google-client-id">OAuth 클라이언트 ID</label><input id="google-client-id" type="text" placeholder="000000000000-xxxx.apps.googleusercontent.com" autocomplete="off"><button id="google-connect" class="secondary-button" type="button">Google 계정 연결</button><p id="google-state" class="subtle">아직 연결되지 않았습니다.</p></section><section class="card settings-card"><h2>기기 간 동기화</h2><p class="helper">현재 버전은 이 브라우저에 저장됩니다. 온라인 배포 단계에서 로그인 기반 동기화를 연결합니다.</p><button id="export-data" class="secondary-button" type="button">데이터 백업</button><label class="file-button" for="import-data">백업 가져오기</label><input id="import-data" class="sr-only" type="file" accept="application/json"></section></div></section>
+    <section class="view" data-panel="settings"><div class="section-heading"><div><p class="eyebrow">설정</p><h1>연결과 데이터</h1></div></div><div class="settings-grid"><section class="card settings-card"><h2>Google Calendar</h2><p class="helper">Google Cloud에서 만든 웹 OAuth 클라이언트 ID를 입력하면 일정 등록 버튼으로 바로 연결할 수 있습니다.</p><label for="google-client-id">OAuth 클라이언트 ID</label><input id="google-client-id" type="text" placeholder="000000000000-xxxx.apps.googleusercontent.com" autocomplete="off"><button id="google-connect" class="secondary-button" type="button">Google 계정 연결</button><p id="google-state" class="subtle">아직 연결되지 않았습니다.</p></section><section class="card settings-card"><h2>기기 간 동기화</h2><p class="helper">로그인하면 폰·PC 등 여러 기기에서 같은 데이터를 사용할 수 있어요. 로그인하지 않으면 이 브라우저에만 저장됩니다.</p><form id="sync-auth-form" class="sync-auth-form"><input id="sync-email" type="email" placeholder="이메일" autocomplete="username"><input id="sync-password" type="password" placeholder="비밀번호 (6자 이상)" autocomplete="current-password"><div class="sync-auth-actions"><button id="sync-signin" class="secondary-button" type="button">로그인</button><button id="sync-signup" class="quiet-button" type="button">회원가입</button></div></form><button id="sync-signout" class="quiet-button hidden" type="button">로그아웃</button><p id="sync-account-state" class="subtle">동기화 상태를 확인하는 중…</p><hr class="settings-sep"><button id="export-data" class="secondary-button" type="button">데이터 백업</button><label class="file-button" for="import-data">백업 가져오기</label><input id="import-data" class="sr-only" type="file" accept="application/json"></section></div></section>
   </main>
   <dialog id="edit-dialog" class="edit-dialog" aria-labelledby="edit-dialog-title">
     <form id="edit-form" class="edit-form">
@@ -124,6 +124,6 @@
     </form>
   </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app.js?v=27" defer></script><script src="glow.js?v=27" defer></script>
+  <script src="supabase-config.js?v=28" defer></script><script src="app.js?v=28" defer></script><script src="glow.js?v=28" defer></script><script src="sync.js?v=28" type="module"></script>
 </body>
 </html>
